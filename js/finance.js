@@ -7,7 +7,7 @@
 
 var Component = new Brick.Component();
 Component.requires = {
-	mod:[{name: 'chart', files: ['raphael.js', 'lib.js']}]
+	mod:[{name: 'chart', files: ['raphael.js', 'datetime.js', 'lib.js']}]
 };
 Component.entryPoint = function(){
 	var Dom = YAHOO.util.Dom,
@@ -25,7 +25,28 @@ Component.entryPoint = function(){
 		w._TM = TM; w._T = T; w._TId = TId;
 	};
 	
+	Raphael.fn.drawGrid = function (x, y, w, h, wv, hv, color) {
+	    color = color || "#000";
+	    x = Math.round(x);
+	    y = Math.round(y);
+	    w = Math.round(w);
+	    h = Math.round(h);
+	    
+	    var path = ["M", x, y, "L", x+w, y, x+w, y+h, x, y+h, x, y],
+	        rowHeight = Math.round(h / hv),
+	        columnWidth = Math.round(w / wv);
+	    for (var i = 1; i < hv; i++) {
+	        path = path.concat(["M", x, y+i*rowHeight, "H", x+w]);
+	    }
+	    for (i = 1; i < wv; i++) {
+	        path = path.concat(["M", x+i*columnWidth, y, "V", y+h]);
+	    }
+	    return this.path(path.join(",")).attr({stroke: color});
+	};
+	
 	var FinanceLineChart = function(el, lines, config){
+		if (!lines || !lines[0] || lines[0].data.length == 0){ return; }
+		
 		var config = L.merge({
 			title: '',
 			nostroke: false, 
@@ -36,8 +57,61 @@ Component.entryPoint = function(){
 		}, config || {});
 		this.init(el, lines, config);
 	};
+
 	FinanceLineChart.prototype = {
 		init: function(el, lines, config){
+		
+			var data = lines[0].data, x = [], y = [];
+	
+			var points = [];
+			
+			for (var i=0;i<data.length;i++){
+				// points[points.length] = [i, data[i][1]];
+				points[points.length] = [data[i][0], data[i][1]];
+			}
+		
+			new NS.LineChart(el, {
+				'offset': {
+					'left': 90
+					// 'top': 0,
+					// 'right': 0,
+					// 'bottom': 0,
+					// 'left': 0
+				},
+				'scale': {
+					'color': '999999',
+					'x-test': {
+						'min': 0,
+						'max': 50,
+						'step': 5,
+						'decimal': 0
+					},
+					'y': {
+						// 'min': 0,
+						// 'max': 30,
+						// 'step': 5,
+						'decimal': 2
+					}
+				},
+				'grid': {
+					'x': true, 'y': true
+				},
+				'lines': [
+				{
+					'color': '#3f72bf',
+					
+					// 'points': [[0,0],[5,10],[10,10],[15,5],[20,20]]
+					'points': points
+				}
+				/*
+				,{
+					'color': '#FF0000',
+					'points': [[5,15],[10,25],[15,5],[20,3],[23,28],[25,17],[30,15]]
+				}/**/
+				]
+			});
+		
+			/*
 			lines = lines || [];
 			
 			buildTemplate(this, 'error0');
@@ -54,11 +128,14 @@ Component.entryPoint = function(){
 				x[x.length] = i;
 				y[y.length] = data[i][1];
 			}
+
+			var r = Raphael(el);
+			
+		    // r.drawGrid(5, 5, rel.width-10, rel.height-15, 10, 10, "#333");
 			
 			var cfg = config;
 			cfg['axisxstep'] = x.length-1;
-			
-			var r = Raphael(el);
+
 			var chart = r.g.linechart(
 				5, 5, rel.width-10, rel.height-15, 
 				[x], [y], cfg
@@ -107,9 +184,8 @@ Component.entryPoint = function(){
 			    
 			}, function() {
 				this.tags && this.tags.remove();
-			});			
-			
-			
+			});	
+			/**/
 		}
 	};
 	NS.FinanceLineChart = FinanceLineChart; 

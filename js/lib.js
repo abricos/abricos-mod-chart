@@ -213,26 +213,49 @@ Component.entryPoint = function(){
 	
 	var TimeScale = function(cfg){
 		cfg = L.merge({
-			'timeType': 'unix' // unix - с 1.1.1970, minutes - минуты с 0 часов
-			// 'min': 0, // >= 0
-			// 'max': 1440, // <= 1440,
-			// 'step': 60 // 60 минут
-		});
+			'fullday': false, // показывать шкалу полного дня (т.е. все 24 часа)
+			'min': 0, // >= 0
+			'max': 1440, // <= 1440,
+			'step': 60*3 // 3 часа минут
+		}, cfg || {});
 		TimeScale.superclass.constructor.call(this, cfg);
 	};
 	YAHOO.extend(TimeScale, Scale, {
+		
 		buildByValues: function(height, values){
-			this.set(0, 1440, 60);
-			this.build(height);
+			if (this.cfg['fullday']){
+				this.set(0, 1440, 60);
+				this.build(height);
+			}else{
+				TimeScale.superclass.buildByValues.call(this, height, values);
+			}
+		},
+		
+		set: function(from, to, step){
+			var mn = 0, mx = 24*60;
+			
+			from = Math.min(Math.max(Math.floor(from/60)*60, mn), mx);
+			to = Math.max(Math.min(Math.ceil(to/60)*60, mx), mn);
+			step = Math.min(Math.max(Math.floor(step), 60), 3*60);
+
+			TimeScale.superclass.set.call(this, from, to, step);
 		},
 		
 		fillScale: function(from, to, step){ // заполнить шкалу значениями
-	        var ival, pxval, sval;
-	        for (var ival = 0; ival < 24; ival++) {
-	        	pxval = this.transform(ival*60);
+
+	        var begin = 0, end = 24, istep = Math.max(Math.floor(step/60), 1);
+	        
+	        if (!this.cfg['fullday']){
+	        	begin = from/(60);
+	        	end = to/(60);
+	        }
+
+	        for (var ival = begin; ival <= end; ival++) {
+	        	var pxval = this.transform(ival*60);
 	        	
-	        	if (Math.floor(ival/3)*3 == ival && ival > 0){
-		        	sval = (ival<10?'0':'')+ ival+':00';
+	        	if (Math.floor(ival/istep)*istep == ival && ival > 0){
+		        	var sval = (ival<10?'0':'')+ ival+':00';
+		        	if (ival == 24){ sval = ''; }
 		        	
 		        	this.add(new ScaleLine(pxval, ival, sval));
 	        	}
@@ -410,7 +433,6 @@ Component.entryPoint = function(){
 		}
 	});
 	NS.DateScale = DateScale;
-
 	
 	// Абстрактный график сетка
 	var GridChart = function(el, cfg){
@@ -775,9 +797,13 @@ Component.entryPoint = function(){
 			// явно заданная шкала отсутствует, необходимо выполнить автоматический рассчет шкалы
 			if (calcX){
 				hScale.buildByValues(w, xvs);
+			}else{
+				hScale.build(w);
 			}
 			if (calcY){
 				vScale.buildByValues(h, yvs);
+			}else{
+				vScale.build(h);
 			}
 			
 			// компиляция точек

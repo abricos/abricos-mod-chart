@@ -80,6 +80,73 @@ Component.entryPoint = function(){
 	};
 	NS.PointList = PointList;
 	
+	var Rectangle = function(x, y, w, h, cfg){
+		this.init(x, y, w, h, cfg);
+	};
+	Rectangle.prototype = {
+		init: function(x, y, w, h, cfg){
+			this.set(x, y, w, h);
+			this.cfg = cfg || {};
+		},
+		set: function(x, y, w, h){
+			this.x = x;
+			this.y = y;
+			this.width = w;
+			this.height = h;
+			this._update;
+		},
+		_update: function(){
+			this.left = this.x;
+			this.top = this.y;
+			this.right = this.x+this.w;
+			this.bottom = this.y+this.h;
+		},
+		checkOver: function(x, y, wp){ // проверка вхождения точки в заданную область
+			wp = wp || 0;
+			
+			this._update();
+			
+			var x1 = this.x - wp, y1 = this.y - wp,
+				x2 = this.right + wp, y2 = this.bottom+wp;
+			
+			return (x >= x1 && x <= x2 && y >= y1 && y <= y2);
+		}
+	};
+	NS.Rectangle = Rectangle;
+	
+	// Коллекция точек
+	var RectangleList = function(){
+		this.init();
+	};
+	RectangleList.prototype = {
+		init: function(){ 
+			this._list = []; 
+		},
+		add: function(rect){ this._list[this._list.length] = rect;},
+		clear: function(){ this._list = []; },
+		count: function(){ return this._list.length; },
+		index: function(i){ return this._list[i]; },
+		foreach: function(f){
+			if (!L.isFunction(f)){ return null; }
+			var ls = this._list;
+			for (var i=0;i<ls.length;i++){
+				if (f(ls[i], i, ls.length)){ return ls[i]; }
+			}
+			return null;
+		},
+		checkOver: function(x, y, wp){
+			var rects = [];
+			this.foreach(function(rect){
+				if (rect.checkOver(x, y, wp)){
+					rects[rects.length] = rect;
+				}
+			});
+			return rects;
+		}
+	};
+	NS.RectangleList = RectangleList;
+
+	
 	// Линия сетки
 	var ScaleLine = function(pxval, relval, title){
 		this.pxval = Math.round(pxval*1);
@@ -111,6 +178,10 @@ Component.entryPoint = function(){
 			this.isVertical = false;
 			this.set(cfg['min'], cfg['max'], cfg['step']);
 		},
+		
+		onMouseOver: function(evt){},
+		onMouseMove: function(evt){},
+		onMouseOut: function(evt){},
 		clear: function(){ this._list = []; },
 		count: function(){ return this._list.length; },
 		add: function(scaleLine){ this._list[this._list.length] = scaleLine; },
@@ -473,8 +544,39 @@ Component.entryPoint = function(){
 			
 			this.features = new FeatureList(cfg['features']);
 			
+			this.chartElements =
+				[
+				 this.vScale,
+				 this.hScale,
+				 this.features
+			    ];
+			
 			var g = this.graphics = Raphael(el);
+
+			var __self = this;
+			/*
+			E.on(el, 'mousemove', function(evt){
+				__self.onMouseMove(evt);
+			});
+			E.on(el, 'mouseout', function(evt){
+				__self.onMouseOut(evt);
+			});
+			E.on(el, 'mouseover', function(evt){
+				__self.onMouseOver(evt);
+			});
+			/**/
 		},
+		_onEvent: function(fname, evt){
+			for (var i=0;i<this.chartElements.length;i++){
+				var cel = this.chartElements[i];
+				if (L.isFunction(cel[fname])){
+					cel[fname](evt);
+				}
+			}
+		},
+		onMouseOver: function(evt){return this._onEvent('onMouseOver', evt);},
+		onMouseMove: function(evt){return this._onEvent('onMouseMove', evt);},
+		onMouseOut: function(evt){return this._onEvent('onMouseOut', evt);},
 		_mergeScaleCfg: function(cfg){
 			return {
 				'min': cfg['min'],
@@ -563,8 +665,8 @@ Component.entryPoint = function(){
 					path = path.concat(["M", sc.pxval, mTp+h, "V", hSc]);
 				}
 			});
-			g.path(path.join(",")).attr({'stroke': cfgSc['color'], 'stroke-width': .1});
-			g.path(pathb.join(",")).attr({'stroke': cfgSc['color'], 'stroke-width': .3});
+			g.path(path.join(",")).attr({'stroke': cfgSc['color'], 'stroke-width': .3});
+			g.path(pathb.join(",")).attr({'stroke': cfgSc['color'], 'stroke-width': .5});
 			
 			return g;
 		},
@@ -601,6 +703,11 @@ Component.entryPoint = function(){
 			// завести отдельную коллекцию.
 			this._pointsForDraw = null;
 		},
+		
+		onMouseOver: function(evt){},
+		onMouseMove: function(evt){},
+		onMouseOut: function(evt){},
+		
 		// график вызывает эту функцию, когда начинает просчитывать шкалу по X и Y
 		checkPointsByScale: function(hScale, vScale){
 			var psdw = this._pointsForDraw = new PointList();
@@ -629,6 +736,16 @@ Component.entryPoint = function(){
 				this.add(features[i]);
 			}
 		},
+		_onEvent: function(fname, evt){
+			this.foreach(function(feature){
+				if (L.isFunction(feature[fname])){
+					feature[fname](evt);
+				}
+			});
+		},		
+		onMouseOver: function(evt){return this._onEvent('onMouseOver', evt);},
+		onMouseMove: function(evt){return this._onEvent('onMouseMove', evt);},
+		onMouseOut: function(evt){return this._onEvent('onMouseOut', evt);},
 		add: function(feature){ this._list[this._list.length] = feature;},
 		clear: function(){ this._list = []; },
 		count: function(){ return this._list.length; },
@@ -835,5 +952,89 @@ Component.entryPoint = function(){
 		}
 	});
 	NS.LineChart = LineChart;
+	
+    NS.popup = function (g, X, Y, set, pos, ret) {
+        pos = String(pos || "top-middle").split("-");
+        pos[1] = pos[1] || "middle";
+        var r = 5,
+            bb = set.getBBox(),
+            w = Math.round(bb.width),
+            h = Math.round(bb.height),
+            x = Math.round(bb.x) - r,
+            y = Math.round(bb.y) - r,
+            gap = Math.min(h / 2, w / 2, 10),
+            shapes = {
+                top: "M{x},{y}h{w4},{w4},{w4},{w4}a{r},{r},0,0,1,{r},{r}v{h4},{h4},{h4},{h4}a{r},{r},0,0,1,-{r},{r}l-{right},0-{gap},{gap}-{gap}-{gap}-{left},0a{r},{r},0,0,1-{r}-{r}v-{h4}-{h4}-{h4}-{h4}a{r},{r},0,0,1,{r}-{r}z",
+                bottom: "M{x},{y}l{left},0,{gap}-{gap},{gap},{gap},{right},0a{r},{r},0,0,1,{r},{r}v{h4},{h4},{h4},{h4}a{r},{r},0,0,1,-{r},{r}h-{w4}-{w4}-{w4}-{w4}a{r},{r},0,0,1-{r}-{r}v-{h4}-{h4}-{h4}-{h4}a{r},{r},0,0,1,{r}-{r}z",
+                right: "M{x},{y}h{w4},{w4},{w4},{w4}a{r},{r},0,0,1,{r},{r}v{h4},{h4},{h4},{h4}a{r},{r},0,0,1,-{r},{r}h-{w4}-{w4}-{w4}-{w4}a{r},{r},0,0,1-{r}-{r}l0-{bottom}-{gap}-{gap},{gap}-{gap},0-{top}a{r},{r},0,0,1,{r}-{r}z",
+                left: "M{x},{y}h{w4},{w4},{w4},{w4}a{r},{r},0,0,1,{r},{r}l0,{top},{gap},{gap}-{gap},{gap},0,{bottom}a{r},{r},0,0,1,-{r},{r}h-{w4}-{w4}-{w4}-{w4}a{r},{r},0,0,1-{r}-{r}v-{h4}-{h4}-{h4}-{h4}a{r},{r},0,0,1,{r}-{r}z"
+            },
+            offset = {
+                hx0: X - (x + r + w - gap * 2),
+                hx1: X - (x + r + w / 2 - gap),
+                hx2: X - (x + r + gap),
+                vhy: Y - (y + r + h + r + gap),
+                "^hy": Y - (y - gap)
+            },
+            mask = [{x: x+r, y: y, w: w, w4: w/4, h4:h/4, right: 0, left: w-gap*2, bottom: 0, top: h - gap * 2, r: r, h: h, gap: gap}, 
+                    {x: x+r, y: y, w: w, w4: w/4, h4:h/4, left: w/2-gap, right: w/2-gap, top: h / 2 - gap, bottom: h / 2 - gap, r: r, h: h, gap: gap }, 
+                    {x: x + r, y: y, w: w, w4: w / 4, h4: h / 4, left: 0, right: w - gap * 2, top: 0, bottom: h - gap * 2, r: r, h: h, gap: gap }]
+        		[pos[1] == "middle" ? 1 : (pos[1] == "top" || pos[1] == "left") * 2];
+        
+	    	var fill = function (str, obj) {
+	            return String(str).replace(tokenRegex, function (all, key) {
+	                return replacer(all, key, obj);
+	            });
+	        };
+	        var tokenRegex = /\{([^\}]+)\}/g,
+		    	objNotationRegex = /(?:(?:^|\.)(.+?)(?=\[|\.|$|\()|\[('|")(.+?)\2\])(\(\))?/g; // matches .xxxxx or ["xxxxx"] to run over object properties
+	        var replacer = function (all, key, obj) {
+		        var res = obj;
+		        key.replace(objNotationRegex, function (all, name, quote, quotedName, isFunc) {
+		            name = name || quotedName;
+		            if (res) {
+		                if (name in res) {
+		                    res = res[name];
+		                }
+		                typeof res == "function" && isFunc && (res = res());
+		            }
+		        });
+		        res = (res == null || res == obj ? all : res) + "";
+		        return res;
+		    };        
+            var dx = 0,
+                dy = 0,
+                out = g.path(fill(shapes[pos[0]], mask)).insertBefore(set);
+            switch (pos[0]) {
+                case "top":
+                    dx = X - (x + r + mask.left + gap);
+                    dy = Y - (y + r + h + r + gap);
+                break;
+                case "bottom":
+                    dx = X - (x + r + mask.left + gap);
+                    dy = Y - (y - gap);
+                break;
+                case "left":
+                    dx = X - (x + r + w + r + gap);
+                    dy = Y - (y + r + mask.top + gap);
+                break;
+                case "right":
+                    dx = X - (x - gap);
+                    dy = Y - (y + r + mask.top + gap);
+                break;
+            }
+            out.translate(dx, dy);
+            if (ret) {
+                ret = out.attr("path");
+                out.remove();
+                return {
+                    path: ret,
+                    dx: dx,
+                    dy: dy
+                };
+            }
+            set.translate(dx, dy);
+            return out;
+    };
 	
 };

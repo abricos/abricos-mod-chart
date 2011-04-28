@@ -12,7 +12,8 @@ Component.requires = {
 	ext: [{
 		name: 'raphael',
 		fullpath: [
-			'/modules/chart/lib/'+RAPHAEL_VERSION+'/raphael-min.js', 
+			'/modules/chart/lib/'+RAPHAEL_VERSION+'/raphael.js', 
+			// '/modules/chart/lib/'+RAPHAEL_VERSION+'/raphael-min.js', -- bag in IE 
 			'/modules/chart/lib/'+GRAPHAEL_VERSION+'/g.raphael-min.js', 
 			'/modules/chart/lib/'+GRAPHAEL_VERSION+'/g.bar-min.js', 
 			'/modules/chart/lib/'+GRAPHAEL_VERSION+'/g.dot-min.js', 

@@ -18,8 +18,18 @@ Component.entryPoint = function(){
 		L = YAHOO.lang;
 	
 	var NS = this.namespace, 
-		TMG = this.template,
-		buildTemplate = function(w, ts){w._TM = TMG.build(ts); w._T = w._TM.data; w._TId = w._TM.idManager;};
+		TMG = this.template;
+	
+	var initCSS = false;
+	var buildTemplate = function(w, ts){
+		if (!initCSS){
+			var CSS = Brick.util.CSS;
+			CSS.update(CSS['chart']['lib']);
+			delete CSS['chart']['lib'];
+			initCSS = true;
+		}
+		w._TM = TMG.build(ts); w._T = w._TM.data; w._TId = w._TM.idManager;
+	};
 		
 	// точка
 	var Point = function(p1, p2){
@@ -163,8 +173,18 @@ Component.entryPoint = function(){
 	
 	// Коллекция линий сетки
 	var Scale = function(cfg){
+		
+		cfg = cfg || {};
+		if (L.isNumber(cfg['min'])){
+			cfg['vmin'] = cfg['min'];
+		}
+		if (L.isNumber(cfg['max'])){
+			cfg['vmax'] = cfg['max'];
+		}
+		
 		cfg = L.merge({
-			'min': 0, 'max': 0, 'step': 0, 'decimal': 0
+			'min': 0, 'max': 0, 'step': 0, 'decimal': 0,
+			'vmin': null, 'vmax': null
 		}, cfg || {});
 		
 		this.init(cfg);
@@ -179,9 +199,6 @@ Component.entryPoint = function(){
 			this.set(cfg['min'], cfg['max'], cfg['step']);
 		},
 		
-		onMouseOver: function(evt){},
-		onMouseMove: function(evt){},
-		onMouseOut: function(evt){},
 		clear: function(){ this._list = []; },
 		count: function(){ return this._list.length; },
 		add: function(scaleLine){ this._list[this._list.length] = scaleLine; },
@@ -209,21 +226,37 @@ Component.entryPoint = function(){
 	        if (step == 0 || from > to){ return; }
 	        var index = 0, ival;
 	        for (ival = from; ival <= to; ival += step) {
-	        	var scline = new ScaleLine(this.transform(ival), ival, ival.toFixed(this.cfg['decimal']));
+	        	var scline = new ScaleLine(this.transform(ival), ival, this.valueToString(ival));
 	        	
 	        	this.add(scline);
 	        }
 		},
+		valueToString: function(value){
+			value = value*1;
+			return value.toFixed(this.cfg['decimal']);
+		},
+		transformMethod: function(val, min, max, size, mirror){
+			
+			if (max == min){ return; }
+			
+	        var calcKoef = size / (max - min);
+			
+			if (mirror){
+				return Math.round((max-val)*calcKoef)+this.offset; // зеркально
+			}
+			return Math.round((val-min)*calcKoef)+this.offset;
+		},
 		transform: function(val, mirror){
 			var cfg = this.cfg;
-			if (cfg['max'] == cfg['min']){ return; }
 			
-	        var calcKoef = cfg['size'] / (cfg['max'] - cfg['min']);
-			
-			if (mirror || this.isVertical){
-				return Math.round((cfg['max']-val)*calcKoef)+this.offset; // зеркально
-			}
-			return Math.round((val-cfg['min'])*calcKoef)+this.offset;
+			/*
+			var min = L.isNumber(cfg['vmin']) ? cfg['vmin'] : cfg['min'],
+					max = L.isNumber(cfg['vmax']) ? cfg['vmax'] : cfg['max'];
+			/**/
+			var min = cfg['min'],
+				max = cfg['max'];
+				
+			return this.transformMethod(val, min, max, cfg['size'], mirror || this.isVertical);
 		},
 		build: function(size){
 			this.cfg['size'] = size;
@@ -282,6 +315,21 @@ Component.entryPoint = function(){
 	YAHOO.extend(HorizontalScale, Scale, { });
 	NS.HorizontalScale = HorizontalScale;
 	
+	// Валютная шкала
+	var CurrencyScale = function(cfg){
+		cfg = L.merge({'decimal': 2}, cfg || {});
+		cfg['dicimal'] = 2;
+		CurrencyScale.superclass.constructor.call(this, cfg);
+	};
+	YAHOO.extend(CurrencyScale, Scale, {
+		valueToString: function(value){
+			return YAHOO.util.Number.format(value, {decimalPlaces: 2, thousandsSeparator: ' ', suffix: ' '});
+		}
+	});
+	NS.CurrencyScale = CurrencyScale;
+	
+	
+	// Временная шкала (часы:минуты). Значения в секундах с 00 часов 00 минут.
 	var TimeScale = function(cfg){
 		cfg = L.merge({
 			'fullday': false, // показывать шкалу полного дня (т.е. все 24 часа)
@@ -416,6 +464,10 @@ Component.entryPoint = function(){
 			return true;
 		},
 		
+		transformMethod: function(val, min, max, size, mirror){
+			return DateScale.superclass.transformMethod.call(this, val, min, max, size-20, mirror);
+		},
+		
 		fillScale: function(from, to, step){ // заполнить шкалу значениями
 	        if (step == 0 || from > to){ return; }
 	        
@@ -447,11 +499,14 @@ Component.entryPoint = function(){
 	        	
 	        	if (flagpx > 70){ flagpx = 0; }
 	        	if (flagpx == 0){
-		        	sval = Brick.dateExt.convert(ival, 2);
+		        	sval = this.valueToString(ival);
 	        	} 
 	        	flagpx += steppx;
 	        	this.add(new ScaleLine(pxval, ival, sval));
 	        }
+		},
+		valueToString: function(value){
+			return Brick.dateExt.convert(value, 2);
 		},
 		roundByPeriod: function(val){
 			switch (this.cfg['period']){
@@ -505,9 +560,10 @@ Component.entryPoint = function(){
 	});
 	NS.DateScale = DateScale;
 	
+	
+	
 	// Абстрактный график сетка
-	var GridChart = function(el, cfg){
-		el.innerHTML = "";
+	var GridChart = function(container, cfg){
 		cfg = L.merge({'scale': {}, 'grid': {}, 'offset': {}, 'features': []}, cfg || {});
 
 		cfg['offset'] = L.merge({
@@ -525,7 +581,7 @@ Component.entryPoint = function(){
 		cfg['scale']['x'] = L.merge({'min': 0, 'max': 0, 'step': 0, 'decimal': 0, 'manager': null}, cfg['scale']['x'] || {});
 		cfg['scale']['y'] = L.merge({'min': 0, 'max': 0, 'step': 0, 'decimal': 0, 'manager': null}, cfg['scale']['y'] || {});
 		
-		this.init(el, cfg);
+		this.init(container, cfg);
 	};
 	// offset
 	GridChart.MLT = 50; // left
@@ -534,8 +590,14 @@ Component.entryPoint = function(){
 	GridChart.MBT = 30; // bottom
 	
 	GridChart.prototype = {
-		init: function(el, cfg){
-			this.element = el;
+		init: function(container, cfg){
+		
+			buildTemplate(this, 'chart');
+			container.innerHTML = this._TM.replace('chart');
+			
+			this.element = this._TM.getEl('chart.pane');
+			this.element.innerHTMl = "";
+			
 			this.cfg = cfg;
 			
 			this.vScale = this.initVerticalScale();
@@ -551,32 +613,8 @@ Component.entryPoint = function(){
 				 this.features
 			    ];
 			
-			var g = this.graphics = Raphael(el);
-
-			var __self = this;
-			/*
-			E.on(el, 'mousemove', function(evt){
-				__self.onMouseMove(evt);
-			});
-			E.on(el, 'mouseout', function(evt){
-				__self.onMouseOut(evt);
-			});
-			E.on(el, 'mouseover', function(evt){
-				__self.onMouseOver(evt);
-			});
-			/**/
+			var g = this.graphics = Raphael(this.element);
 		},
-		_onEvent: function(fname, evt){
-			for (var i=0;i<this.chartElements.length;i++){
-				var cel = this.chartElements[i];
-				if (L.isFunction(cel[fname])){
-					cel[fname](evt);
-				}
-			}
-		},
-		onMouseOver: function(evt){return this._onEvent('onMouseOver', evt);},
-		onMouseMove: function(evt){return this._onEvent('onMouseMove', evt);},
-		onMouseOut: function(evt){return this._onEvent('onMouseOut', evt);},
 		_mergeScaleCfg: function(cfg){
 			return {
 				'min': cfg['min'],
@@ -596,6 +634,9 @@ Component.entryPoint = function(){
 			if (!scale){ scale = new HorizontalScale(this._mergeScaleCfg(cfg)); }
 			scale.offset = this.cfg['offset']['left'];
 			return scale;
+		},
+		getTooltipContainer: function(){
+			return this._TM.getEl('chart.tooltip');
 		},
 		getWidth: function(){
 			var offset = this.cfg['offset'];
@@ -621,13 +662,10 @@ Component.entryPoint = function(){
 				h = rg.height-mTp-mBt,
 				xLt = mLt, xRt = w+mLt,
 				yTp = mTp, yBt = h+mTp;
-			
+
 			if (w < 20 || h < 20){ return; }
 			
 			var cfgSc = cfg['scale'];
-			
-			// this.hScale.build(w);
-			// this.vScale.build(h);
 			
 			var ph = [];
 			// вертикальная линия
@@ -678,6 +716,46 @@ Component.entryPoint = function(){
 		}
 	};
 	NS.GridChart = GridChart;
+	
+	var Tooltip = function(){
+		this.init();
+	};
+	Tooltip.prototype = {
+		init: function(){
+			buildTemplate(this, 'tooltip');
+		},
+		
+		getText: function(prm){
+			var chart = prm['chart'], p = prm['pr'];
+			var vh = chart.hScale.valueToString(p.x),
+				vv = chart.vScale.valueToString(p.y);
+
+			return vh+', '+vv;
+		},
+		
+		show: function(prm, x, y){
+			var el = prm['chart'].getTooltipContainer();
+			this.move(prm, x, y);
+			if (this._isShow){ return; }
+			
+			el.innerHTML = this._TM.replace('tooltip');
+			this._TM.getEl('tooltip.id').innerHTML = this.getText(prm);
+			Dom.setStyle(el, 'display', '');
+		},
+		move: function(prm, x, y){
+			var el = prm['chart'].getTooltipContainer();
+
+			Dom.setStyle(el, 'left', x+'px');
+			Dom.setStyle(el, 'top', y+'px');
+		},
+		hide: function(prm){
+			var el = prm['chart'].getTooltipContainer();
+			
+			this._isShow = false;
+			Dom.setStyle(el, 'display', 'none');
+		}
+	};
+	NS.Tooltip = Tooltip;
 
 	// элемент на графике
 	var Feature = function(cfg){
@@ -704,10 +782,6 @@ Component.entryPoint = function(){
 			this._pointsForDraw = null;
 		},
 		
-		onMouseOver: function(evt){},
-		onMouseMove: function(evt){},
-		onMouseOut: function(evt){},
-		
 		// график вызывает эту функцию, когда начинает просчитывать шкалу по X и Y
 		checkPointsByScale: function(hScale, vScale){
 			var psdw = this._pointsForDraw = new PointList();
@@ -720,7 +794,37 @@ Component.entryPoint = function(){
 			});
 			return psdw;
 		},
-		draw: function(g, points){ }
+		draw: function(g, points){ },
+		mouseHandle: function(evt, p){
+			var rect = p.rect;
+			
+			var cfg = this.cfg,
+				tooltip = cfg['tooltip'],
+				x = evt.layerX, y = evt.layerY+22;
+			
+			var fname = "";
+			switch(evt.type){
+			case 'click': 
+				fname = 'onClick'; 
+				break;
+			case 'mouseover':
+				if (tooltip){ tooltip.show(p, x, y); }
+				fname = 'onMouseOver'; 
+				break;
+			case 'mouseout':  
+				if (tooltip){ tooltip.hide(p); }
+				fname = 'onMouseOut'; 
+				break;
+			case 'mousemove':
+				if (tooltip){ tooltip.move(p, x, y);}
+				fname = 'onMouseMove'; 
+				break;
+			default: return;
+			}
+			if (L.isFunction(this[fname])){ 
+				this[fname](evt, p);
+			}
+		}
 	};
 	NS.Feature = Feature;
 	
@@ -736,16 +840,6 @@ Component.entryPoint = function(){
 				this.add(features[i]);
 			}
 		},
-		_onEvent: function(fname, evt){
-			this.foreach(function(feature){
-				if (L.isFunction(feature[fname])){
-					feature[fname](evt);
-				}
-			});
-		},		
-		onMouseOver: function(evt){return this._onEvent('onMouseOver', evt);},
-		onMouseMove: function(evt){return this._onEvent('onMouseMove', evt);},
-		onMouseOut: function(evt){return this._onEvent('onMouseOut', evt);},
 		add: function(feature){ this._list[this._list.length] = feature;},
 		clear: function(){ this._list = []; },
 		count: function(){ return this._list.length; },
@@ -845,25 +939,37 @@ Component.entryPoint = function(){
 			var wbar = Math.floor(hScale.transform(hScale.cfg['min'] + hScale.cfg['step']) - hScale.transform(hScale.cfg['min']));
 			wbar = wbar-wbar*.2;
 
+			var barList = g.set(), __self = this;
+
 			points.foreach(function(preal, index){
+				
 				var p = chart.transform(preal);
-				g.rect(p.x-wbar/2, p.y, wbar, y-p.y).attr({
+				barList.push(g.rect(p.x-wbar/2, p.y, wbar, Math.max(y-p.y,1)).attr({
 					stroke: cfg.color, "stroke-width": 1,
 					fill: cfg.background
-				});
+				}));
+				var rect = barList[barList.length-1];
+				
+				var prv = {'rect': rect, 'chart': chart, 'index': index, 'pr': preal};
+				
+				rect.click(function(evt){__self.mouseHandle(evt, prv);});
+				rect.mouseover(function(evt){__self.mouseHandle(evt, prv);});
+				rect.mouseout(function(evt){__self.mouseHandle(evt, prv);});
+				rect.mousemove(function(evt){__self.mouseHandle(evt, prv);});
 			});
-		}		
+			barList.toFront();
+		}
 	});
 	NS.BarFeature = BarFeature;
 
 	
 	// линейный график
-	var LineChart = function(el, cfg){
-		LineChart.superclass.constructor.call(this, el, cfg);
+	var LineChart = function(container, cfg){
+		LineChart.superclass.constructor.call(this, container, cfg);
 	};
 	YAHOO.extend(LineChart, GridChart, {
-		init: function(el, cfg){
-			LineChart.superclass.init.call(this, el, cfg);
+		init: function(container, cfg){
+			LineChart.superclass.init.call(this, container, cfg);
 			this.lines = new FeatureList();
 			
 			this.draw();
@@ -873,7 +979,7 @@ Component.entryPoint = function(){
 			var cfg = this.cfg,
 				w = this.getWidth(),
 				h = this.getHeight();
-		
+
 			if (w < 50 || h < 50){ return; }
 
 			var vScale = this.vScale, hScale = this.hScale,
@@ -1036,5 +1142,90 @@ Component.entryPoint = function(){
             set.translate(dx, dy);
             return out;
     };
-	
+
+    
+    
+     YAHOO.util.Number = {
+     
+         /**
+         * Takes a native JavaScript Number and formats to string for display to user.
+         *
+         * @method format
+         * @param nData {Number} Number.
+         * @param oConfig {Object} (Optional) Optional configuration values:
+         *  <dl>
+         *   <dt>prefix {String}</dd>
+         *   <dd>String prepended before each number, like a currency designator "$"</dd>
+         *   <dt>decimalPlaces {Number}</dd>
+         *   <dd>Number of decimal places to round.</dd>
+         *   <dt>decimalSeparator {String}</dd>
+         *   <dd>Decimal separator</dd>
+         *   <dt>thousandsSeparator {String}</dd>
+         *   <dd>Thousands separator</dd>
+         *   <dt>suffix {String}</dd>
+         *   <dd>String appended after each number, like " items" (note the space)</dd>
+         *   <dt>negativeFormat</dt>
+         *   <dd>String used as a guide for how to indicate negative numbers.  The first '#' character in the string will be replaced by the number.  Default '-#'.</dd>
+         *  </dl>
+         * @return {String} Formatted number for display. Note, the following values
+         * return as "": null, undefined, NaN, "".
+         */
+        format : function(n, cfg) {
+            if (!isFinite(+n)) {
+                return '';
+            }
+
+            n   = !isFinite(+n) ? 0 : +n;
+            cfg = YAHOO.lang.merge(YAHOO.util.Number.format.defaults, (cfg || {}));
+
+            var neg    = n < 0,        absN   = Math.abs(n),
+                places = cfg.decimalPlaces,
+                sep    = cfg.thousandsSeparator,
+                s, bits, i;
+
+            if (places < 0) {
+                // Get rid of the decimal info
+                s = absN - (absN % 1) + '';
+                i = s.length + places;
+
+                // avoid 123 vs decimalPlaces -4 (should return "0")
+                if (i > 0) {
+                        // leverage toFixed by making 123 => 0.123 for the rounding
+                        // operation, then add the appropriate number of zeros back on
+                    s = Number('.' + s).toFixed(i).slice(2) +
+                        new Array(s.length - i + 1).join('0');
+                } else {
+                    s = "0";
+                }
+            } else {        // There is a bug in IE's toFixed implementation:
+                // for n in {(-0.94, -0.5], [0.5, 0.94)} n.toFixed() returns 0
+                // instead of -1 and 1. Manually handle that case.
+                s = absN < 1 && absN >= 0.5 && !places ? '1' : absN.toFixed(places);
+            }
+
+            if (absN > 1000) {
+                bits  = s.split(/\D/);
+                i  = bits[0].length % 3 || 3;
+
+                bits[0] = bits[0].slice(0,i) +
+                          bits[0].slice(i).replace(/(\d{3})/g, sep + '$1');
+
+                s = bits.join(cfg.decimalSeparator);
+            }
+
+            s = cfg.prefix + s + cfg.suffix;
+
+            return neg ? cfg.negativeFormat.replace(/#/,s) : s;
+        }
+    };
+    YAHOO.util.Number.format.defaults = {
+        decimalSeparator : '.',
+        decimalPlaces    : null,
+        thousandsSeparator : '',
+        prefix : '',
+        suffix : '',
+        negativeFormat : '-#'
+    };
+    
+    
 };

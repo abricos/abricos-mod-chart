@@ -1,0 +1,21 @@
+.aw-chart {
+	position: relative;
+	width: inherit; 
+	height: inherit;
+}
+.aw-chart .chpane {
+	width: inherit; 
+	height: inherit;
+}
+
+.aw-chart .chtooltip {
+	position: absolute;
+	background-color: #ffffcf;
+	border: 1px dotted;
+	
+	left: 100px;
+	top: 100px;
+}
+.aw-chart .chtooltip .twtext {
+	padding: 10px;
+}

@@ -1,5 +1,5 @@
 /*
-@version $Id: board.js 986 2011-04-17 16:21:48Z roosit $
+@version $Id$
 @package Abricos
 @copyright Copyright (C) 2008 Abricos All rights reserved.
 @license http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php

@@ -1,5 +1,5 @@
 /*
-@version $Id: project.js 705 2010-09-08 12:47:39Z Mansur $
+@version $Id$
 @package Abricos
 @copyright Copyright (C) 2010 Abricos All rights reserved.
 @license http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php

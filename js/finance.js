@@ -1,5 +1,5 @@
 /*
-@version $Id: api.js 132 2009-11-02 09:05:07Z roosit $
+@version $Id$
 @package Abricos
 @copyright Copyright (C) 2010 Abricos. All rights reserved.
 @license http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php

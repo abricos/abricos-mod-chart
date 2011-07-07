@@ -184,6 +184,7 @@ Component.entryPoint = function(){
 		
 		cfg = L.merge({
 			'min': 0, 'max': 0, 'step': 0, 'decimal': 0,
+			'dmax': 0, 'dmin': 0,
 			'vmin': null, 'vmax': null
 		}, cfg || {});
 		
@@ -236,8 +237,12 @@ Component.entryPoint = function(){
 			return value.toFixed(this.cfg['decimal']);
 		},
 		transformMethod: function(val, min, max, size, mirror){
-			
+			// Brick.console([min, max]); 218 203.45
 			if (max == min){ return; }
+			
+			var cfg = this.cfg, del = (max - min);
+			
+			max += del*(cfg['dmax']*0.01); min -= del*(cfg['dmin']*0.01);
 			
 	        var calcKoef = size / (max - min);
 			
@@ -249,12 +254,13 @@ Component.entryPoint = function(){
 		transform: function(val, mirror){
 			var cfg = this.cfg;
 			
-			/*
-			var min = L.isNumber(cfg['vmin']) ? cfg['vmin'] : cfg['min'],
-					max = L.isNumber(cfg['vmax']) ? cfg['vmax'] : cfg['max'];
-			/**/
 			var min = cfg['min'],
 				max = cfg['max'];
+			
+			if (min == max){
+				min -= cfg['step']; 
+				max += cfg['step']; 
+			}
 				
 			return this.transformMethod(val, min, max, cfg['size'], mirror || this.isVertical);
 		},
@@ -289,7 +295,6 @@ Component.entryPoint = function(){
 			var minstep = Math.max(height / 80, 1),
 				oneval = Math.max(maxval - minval, 1),
 				step = oneval / Math.min(oneval, minstep);
-
 			this.set(minval, maxval, step);
 			this.build(height);
 		},
@@ -300,6 +305,10 @@ Component.entryPoint = function(){
 	};
 	
 	var VerticalScale = function(cfg){
+		cfg = L.merge({
+			'dmin': 5,
+			'dmax': 5
+		}, cfg || {});
 		VerticalScale.superclass.constructor.call(this, cfg);
 	};
 	YAHOO.extend(VerticalScale, Scale, {
@@ -321,7 +330,7 @@ Component.entryPoint = function(){
 		cfg['dicimal'] = 2;
 		CurrencyScale.superclass.constructor.call(this, cfg);
 	};
-	YAHOO.extend(CurrencyScale, Scale, {
+	YAHOO.extend(CurrencyScale, VerticalScale, {
 		valueToString: function(value){
 			return YAHOO.util.Number.format(value, {decimalPlaces: 2, thousandsSeparator: ' ', suffix: ' '});
 		}
@@ -395,7 +404,8 @@ Component.entryPoint = function(){
 			'unix':		false,	// числовой ряд даты в unix формате?
 			'period':	'week',	// day || week || month || year || custom?
 			'round':	true,	// корректировать дату, округляя ее до выбранного периода
-			'average':	true,	// объединять значения вычисляя среднее арифметическое  
+			'method':	'sum',	// метод объединения значений в период: sum - суммирование, average - среднеарифметическое,
+								// max - максимальное  
 			'dateFrom':	null,	// период начало
 			'dateTo':	null	// период конец
 		}, cfg || {});
@@ -414,7 +424,7 @@ Component.entryPoint = function(){
 		},
 		roundDay: function(val){ // округлить значение до целого дня
 			var oneday = this.oneDay();
-			return Math.floor(val/oneday)*oneday;
+			return Math.ceil(val/oneday)*oneday;
 		},
 		getWeekId: function(val) {
 			return this.getWeek(this.valueToDate(val));
@@ -519,11 +529,20 @@ Component.entryPoint = function(){
 			if (rvs.length == 0){ return null; }
 			
 			var cfg = this.cfg, nrvs = [], nmvs = [];
-			if (!cfg['round'] && !cfg['average']){ return null; }
+			if (!cfg['round']){ return null; }
 			
 			var first = true, notfirst = false; //this.roundByPeriod(rvs[0])*1 < rvs[0]*1;
 			
 			// TODO: возможно при округлении могут быть траблы (начало дня или конец дня?)
+			
+			var isMethod = false;
+			switch(cfg['method']){
+			case 'average':
+			case 'sum':
+			case 'max':
+				isMethod = true;
+				break;
+			}
 			
 			var add = function(dt, af){
 				if (L.isNull(af)){ return; }
@@ -532,19 +551,33 @@ Component.entryPoint = function(){
 					if (notfirst){ return; }
 				}
 				nrvs[nrvs.length] = dt;
-				nmvs[nmvs.length] = af['s'] / af['c'];
+				var v = 0;
+				
+				switch(cfg['method']){
+				case 'average':
+					v = af['s'] / af['c'];
+				case 'sum':
+				case 'max':
+					v = af['s'];
+					break;
+				}
+				nmvs[nmvs.length] = v;
 			};
 			
 			var current = null, arif = null; // {'s': 0,'c': 0};
 			for (var i=0;i<rvs.length;i++){
 				var vdt = this.roundByPeriod(rvs[i]);
-				if (cfg['average']){
+				if (isMethod){
 					if (vdt != current){
 						add(current, arif);
 						arif = {'s': mvs[i]*1,'c': 1};
 						current = vdt;
 					}else{
-						arif['s'] += mvs[i]*1;
+						if (cfg['method'] == 'max'){
+							arif['s'] = Math.max(mvs[i]*1, arif['s']);
+						}else{
+							arif['s'] += mvs[i]*1;
+						}
 						arif['c']++;
 					}
 				}else{
@@ -552,7 +585,7 @@ Component.entryPoint = function(){
 					nmvs[nmvs.length] = mvs[i];
 				}
 			}
-			if (cfg['average']){
+			if (isMethod){
 				add(current, arif);
 			}
 			return [nrvs, nmvs];
@@ -1048,7 +1081,7 @@ Component.entryPoint = function(){
 				comp['points'].join(comp['xvs'], comp['yvs']);
 				
 			}
-			
+
 			LineChart.superclass.draw.call(this);
 			
 			for (var i=0;i<compiler.length;i++){

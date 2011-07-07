@@ -8,9 +8,6 @@
  * @author Gabidullin Mansur (mansurrescue@mail.ru)
  */
 
-$mod = new ChartModule();
-CMSRegistry::$instance->modules->Register($mod);;
-
 class ChartModule extends CMSModule {
 	
 	public function ChartModule(){
@@ -18,5 +15,8 @@ class ChartModule extends CMSModule {
 		$this->name = "chart";
 	}
 }
+
+$mod = new ChartModule();
+CMSRegistry::$instance->modules->Register($mod);;
 
 ?>

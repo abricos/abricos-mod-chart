@@ -8,15 +8,14 @@
  * @author Gabidullin Mansur (mansurrescue@mail.ru)
  */
 
-class ChartModule extends CMSModule {
+class ChartModule extends Ab_Module {
 	
 	public function ChartModule(){
-		$this->version = "0.1";
+		$this->version = "0.1.1";
 		$this->name = "chart";
 	}
 }
 
-$mod = new ChartModule();
-CMSRegistry::$instance->modules->Register($mod);;
+Abricos::ModuleRegister(new ChartModule());
 
 ?>

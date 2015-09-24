@@ -1,4 +1,9 @@
-abricos-mod-chart
-====================
+# abricos-mod-chart
 
-Chart Module for Abricos Platform
+Chart module for Abricos Platform
+
+
+## License
+Copyright (c) 2010-2015 Alexander Kuzmin
+
+Licensed under the MIT License (MIT)

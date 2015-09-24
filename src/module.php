@@ -1,17 +1,19 @@
-<?php 
+<?php
 /**
- * @version $Id$
  * @package Abricos
- * @subpackage Raphael
- * @copyright Copyright (C) 2008 Abricos. All rights reserved.
- * @license http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php
- * @author Gabidullin Mansur (mansurrescue@mail.ru)
+ * @subpackage Chart
+ * @copyright 2011-2015 Alexander Kuzmin
+ * @license http://opensource.org/licenses/mit-license.php MIT License
+ * @author Alexander Kuzmin <roosit@abricos.org>
  */
 
+/**
+ * Class ChartModule
+ */
 class ChartModule extends Ab_Module {
 	
 	public function ChartModule(){
-		$this->version = "0.1.1";
+		$this->version = "0.1.2";
 		$this->name = "chart";
 	}
 }

@@ -1,0 +1,16 @@
+{
+  "files": {
+    "raphael": [
+      "*.js",
+      "license.txt"
+    ],
+    "g.raphael": [
+      {
+        "cwd": "min",
+        "src": "*.js"
+      },
+      "*.js",
+      "README.markdown"
+    ]
+  }
+}

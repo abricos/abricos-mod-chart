@@ -1,13 +1,15 @@
 var Component = new Brick.Component();
 Component.requires = {
-    ext: [{
-        name: 'raphael',
-        fullpath: [
-            '/vendor/raphael/raphael-min.js',
-            '/vendor/g.raphael/g.raphael-min.js'
-        ],
-        type: 'js'
-    }]
+    ext: [
+        {
+            name: 'raphael',
+            fullpath: '/gzip.php?base=vendor&v=2.14&file=raphael/raphael-min.js,g.raphael/g.raphael-min.js,g.raphael/g.pie-min.js',
+            type: 'js'
+        }
+    ],
+    mod: [
+        {name: '{C#MODNAME}', files: ['model.js']}
+    ]
 };
 Component.entryPoint = function(NS){
     var COMPONENT = this,
@@ -18,7 +20,10 @@ Component.entryPoint = function(NS){
             this.initCallbackFire();
         }
     }, [], {
-        ATTRS: {},
+        ATTRS: {
+            PieItem: {value: NS.PieItem},
+            PieItemList: {value: NS.PieItemList}
+        },
         REQS: {},
         URLS: {}
     });

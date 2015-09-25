@@ -32,10 +32,11 @@ Component.entryPoint = function(NS){
             var maxCount = this.get('maxPartCount'),
                 titles = [],
                 mains = [],
+                percents = [],
                 other = 0,
+                otherPercent = 0,
                 sum = 0,
-                i = 0,
-                values = this.toArray('value');
+                i = 0;
 
             this.each(function(item){
                 var value = item.get('value'),
@@ -50,10 +51,18 @@ Component.entryPoint = function(NS){
                 i++;
             }, this);
 
+            for (i = 0; i < mains.length; i++){
+                percents[i] = (sum / 100) * mains[i];
+            }
+
+            otherPercent = (sum / 100) * other;
+
             return {
                 titles: titles,
                 values: mains,
+                percents: percents,
                 other: other,
+                otherPercent: otherPercent,
                 sum: sum
             };
         }

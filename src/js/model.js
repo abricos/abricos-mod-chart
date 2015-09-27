@@ -9,6 +9,19 @@ Component.entryPoint = function(NS){
     var Y = Brick.YUI,
         SYS = Brick.mod.sys;
 
+    NS.COLORS = [
+        '#5DA5DA',
+        '#FAA43A',
+        '#60BD68',
+        '#F17CB0',
+        '#B2912F',
+        '#B276B2',
+        '#DECF3F',
+        '#4D4D4D',
+        '#F15854',
+    ];
+
+
     NS.PieItem = Y.Base.create('pieItem', SYS.AppItem, [], {}, {
         ATTRS: {
             id: {value: 0},
@@ -33,8 +46,9 @@ Component.entryPoint = function(NS){
                 titles = [],
                 mains = [],
                 percents = [],
+                colors = [],
                 other = 0,
-                otherPercent = 0,
+                otherPercent,
                 sum = 0,
                 i = 0;
 
@@ -52,10 +66,11 @@ Component.entryPoint = function(NS){
             }, this);
 
             for (i = 0; i < mains.length; i++){
-                percents[i] = (sum / 100) * mains[i];
+                colors[i] = NS.COLORS[i];
+                percents[i] = Math.round((mains[i] / sum) * 100);
             }
 
-            otherPercent = (sum / 100) * other;
+            otherPercent = Math.round((other / sum) * 100);
 
             return {
                 titles: titles,
@@ -63,6 +78,7 @@ Component.entryPoint = function(NS){
                 percents: percents,
                 other: other,
                 otherPercent: otherPercent,
+                colors: colors,
                 sum: sum
             };
         }
@@ -72,5 +88,4 @@ Component.entryPoint = function(NS){
             maxPartCount: {value: 8}
         }
     });
-
 };

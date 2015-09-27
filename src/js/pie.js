@@ -35,7 +35,9 @@ Component.entryPoint = function(NS){
 
             var r = Raphael(tp.gelid('chart'));
 
-            var pie = r.piechart(x, height / 2, radius, report.values);
+            r.piechart(x, height / 2, radius, report.values, {
+                colors: report.colors
+            });
         },
         destructor: function(){
         },

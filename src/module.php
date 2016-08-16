@@ -12,12 +12,10 @@
  */
 class ChartModule extends Ab_Module {
 	
-	public function ChartModule(){
+	public function __construct(){
 		$this->version = "0.1.2";
 		$this->name = "chart";
 	}
 }
 
 Abricos::ModuleRegister(new ChartModule());
-
-?>
